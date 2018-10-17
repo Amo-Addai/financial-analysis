@@ -1,4 +1,6 @@
+import datetime
 import numpy as np
+import scipy as sp
 import pandas as pd
 import matplotlib as plt
 from matplotlib.finance import candlestick_ohlc
@@ -6,7 +8,9 @@ from matplotlib.dates import DateFormatter, date2num, WeekdayLocator, DayLocator
 import pandas_datareader
 import pandas_datareader.data as web
 from pandas.plotting import scatter_matrix
-import datetime
+import statsmodels.api as sm
+import statsmodels.formula.api as smf
+import statsmodels.graphics.api as smg
 
 start = datetime.datetime(2012, 1, 1)
 end = datetime.datetime(2017, 1, 1)
@@ -134,5 +138,20 @@ tesla['Cumulative Return'].plot(label='Tesla', figsize=(16,8))
 ford['Cumulative Return'].plot(label='ford', figsize=(16,8))
 gm['Cumulative Return'].plot(label='GM', figsize=(16,8))
 plt.legend()
+
+#   WORKING WITH TIME-SERIES DATA
+df = sm.datasets.macrodata.load_pandas().data  # LOAD A SAMPLE DATASET AS A DATAFRAME
+print(sm.datasets.macrodata.NOTE)  # PRINTS OUT DESCRIPTION OF THIS DATASET
+i = sm.tsa.datetools.dates_from_range('1959Q1', '2009Q3')  # 1ST QUARTER OF 1959 - 3RD QUARTER OF 2009
+df.index = pd.Index(i)  # COZ i IS A DATE-RANGE, THIS WILL BE A DATETIME INDEX
+gdp_cycle, gdp_trend = sm.tsa.filters.hpfilter(df['realgdp']) # RETURNS A TUPLE OF PANDAS SERIES OBJECTS
+# hpfilter() - Hodrick-Prescott filter, which separates Timeseries y(t) into Trend T(t) and Cyclical Component E(t)
+
+
+# ETS MODELS: Error-Trend-Seasonality
+
+# EWMA MODELS:
+
+# ARIMA MODELS:
 
 

@@ -11,6 +11,7 @@ from pandas.plotting import scatter_matrix
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import statsmodels.graphics.api as smg
+from statsmodels.tsa.seasonal import seasonal_decompose
 
 start = datetime.datetime(2012, 1, 1)
 end = datetime.datetime(2017, 1, 1)
@@ -147,11 +148,59 @@ df.index = pd.Index(i)  # COZ i IS A DATE-RANGE, THIS WILL BE A DATETIME INDEX
 gdp_cycle, gdp_trend = sm.tsa.filters.hpfilter(df['realgdp']) # RETURNS A TUPLE OF PANDAS SERIES OBJECTS
 # hpfilter() - Hodrick-Prescott filter, which separates Timeseries y(t) into Trend T(t) and Cyclical Component E(t)
 
+# THE CODE BELOW IS JUST SOME PREPROCESSING STUFF
+airline = pd.read_csv('airline_passengers.csv', index_col="Month")
+airline.dropna(inplace=True)
+airline.index = pd.to_datetime(airline.index)
+
+# EWMA MODELS: Exponential Weighted Moving Average
+airline['6-month-SMA'] = airline['passengers'].rolling(window=6).mean()
+airline['12-month-SMA'] = airline['passengers'].rolling(window=12).mean()
+airline[['passengers', '6-month-SMA', '12-month-SMA']].plot(figsize=(10, 8)) # PLOTTING OUT A SIMPLE MOVING AVERAGE
+
+# BUT SMA ALWAYS LAGS AT THE BEGINNING WITH THE SIZE OF THE WINDOW
+# IT ALSO NEVER REACHES THE FULL PEAK/VALLEY DUE TO AVERAGING
+# HOWEVER, THE EWMA LETS THE MOST RECENT POINTS HAVE MORE WEIGHT & FIXES THESE ISSUES
+airline['EWMA-12'] = airline['passengers'].ewm(span=12).mean()
+airline[['passengers', 'EWMA-12']].plot(figsize=(10, 8)) # PLOTTING OUT A EXPO-WEIGHTED MOVING AVERAGE
 
 # ETS MODELS: Error-Trend-Seasonality
+result = seasonal_decompose(airline['passengers'], model="multiplicative")  # ETS DECOMPOSES THIS SERIES
+# model="additive" IF THE TREND OF THE SERIES LOOKS MORE LINEAR, THAN EXPONENTIAL
+print(result.seasonal); result.seasonal.plot(); result.trend.plot()
+result.plot()  # THIS PLOTS ALL THE E-T-S COMPONENTS (ABOVE) SEPARATELY
 
-# EWMA MODELS:
 
-# ARIMA MODELS:
+# ARIMA MODELS: AUTOREGRESSIVE INTEGRATED MOVING AVERAGES (GENERALIZATION OF ARMA MODEL)
+# 1. Visualize the Time Series data
+df = pd.read_csv('monthly-milk-production-pounds-p.csv')
+df.head(); df.columns = ['Month', 'Milk in Pounds per Cow']; df.drop(168, axis=0, inplace=True); df.tail()
+df['Month'] = pd.to_datetime(df['Month']); df.set_index('Month', inplace=True)  # CONVERT INDEX TO DATTIME INDEX
+df.describe().transpose(); df.plot()
+ts = df['Milk in Pounds per Cow']  # AFTER PLOTTING, WE REALIZE THAT DATA IS SEASONAL
+# JUST BASIC VISUALIZATION WITHIN THE CONSOLE (REGULAR SMA PLOTS FOR NOW)
+ts.rolling(window=12).mean().plot(label='12 Month Rolling Mean');
+ts.rolling(window=12).std().plot(label='12 Month Rolling Std');
+ts.plot(); plt.legend()  # DATA WAS SEASONAL IN YEARS (THEREFORE 12 ROLLING FOR 12 MONTHS)
+# NOW, TESTING THE EWMA PLOTS - MOST RECENT POINTS HAVE MORE WEIGHT & FIXES THESE ISSUES
+ts_ewma = ts.ewm(span=12).mean().plot(figsize=(10, 8))
+# NOW ALSO, ETS DECOMPOSITION
+ts_ets = seasonal_decompose(ts, model="additive")  # OR: model="multiplicative"
+print(ts_ets); fig = ts_ets.plot(); fig.set_size_inches(15, 8)  # THIS PLOTS ALL THE E-T-S COMPONENTS SEPARATELY
+
+# 2. Make the Time Series data stationary
+
+
+
+
+# 3. Plot the Correlation and AutoCorrelation Charts (ACF & PACF charts)
+
+
+# 4. Construct the ARIMA Model (using p, d, q, P, D, Q parameters)
+
+
+# 5. Use ARIMA model to make predictions / forecasts
+
+
 
 

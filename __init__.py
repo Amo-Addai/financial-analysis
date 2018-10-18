@@ -15,6 +15,9 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from pandas.plotting import autocorrelation_plot
+from statsmodels.tsa.arima_model import ARIMA
+from pandas.tseries.offsets import DateOffset
+
 
 start = datetime.datetime(2012, 1, 1)
 end = datetime.datetime(2017, 1, 1)
@@ -233,10 +236,28 @@ autocorrelation_plot(seasonal_diff1.dropna())  # LIKE THIS
 pacf_seasonal_diff1_plot = plot_pacf(seasonal_diff1.dropna())  # SHARP DROP-OFF
 
 # 4. Construct the ARIMA (or Seasonal ARIMA) Model (using p, d, q, P, D, Q parameters)
-
-
+model = sm.tsa.statespace.SARIMAX(ts, order=(0,1,0), seasonal_order=(1,1,1,12))  # SEASONAL ARIMA MODEL
+model_results = model.fit()  # FIT THE MODEL TO THE DATA
+print(model_results.summary()); print(model_results.resid)  # PRINT OUT SUMMARY & RESIDUAL VALUES
+model_results.resid.plot(kind='kde')  # PLOT THE RESIDUAL RESULTS (WITH KIND - KERNEL DENSITY ESTIMATION)
 
 # 5. Use ARIMA model to make predictions / forecasts
+df['forecast'] = model_results.predict(start=150, end=168)  # start=150 IS WHERE THE TRAINING DATA ENDS ACTUALLY
+df[['Milk in Pounds per Cow', 'forecast']].plot(12, 8)
+# SO THIS PLOT WILL 1ST PLOT THE TRAINING DATA (Milk in ... COLUMN) CONTINUE FROM THE ENDING OF THE TRAINING DATA TIMESETIES
+
+# YOU CAN TRY CONCAT'ING NEW DATES TO THE DATAFRAME TOO ..
+future_dates = [df.index[-1] + DateOffset(months=x) for x in range(1, 24)]
+future_df = pd.DataFrame(index=future_dates, columns=df.columns)
+final_df = pd.concat(df, future_df)
+final_df.tail()  # THE ENDING OF THIS DF WILL HAVE NO DATA, COZ WE CONCAT'D NEW DATES WITH NO DATA
+# THEREFORE, WE FORECAST USING THIS final_df AGAIN
+final_df['forecast'] = model_results.predict(start=168, end=192)
+final_df.tail()  # WILL NOW FORECASTED VALUES FOR THE CONCAT'D DATA
+final_df['Milk in Pounds per Cow', 'forecast'].plot()  # NOW, FINALLY, PLOT!!!
+
+
+
 
 
 

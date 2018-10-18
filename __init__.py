@@ -13,6 +13,8 @@ import statsmodels.formula.api as smf
 import statsmodels.graphics.api as smg
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from pandas.plotting import autocorrelation_plot
 
 start = datetime.datetime(2012, 1, 1)
 end = datetime.datetime(2017, 1, 1)
@@ -222,10 +224,15 @@ seasonal_diff = ts - ts.shift(12); seasonal_diff.plot(); result = adf_check(seas
 seasonal_diff1 = diff1 - diff1.shift(12); seasonal_diff1.plot(); adf_check(seasonal_diff1.dropna())
 
 # 3. Plot the Correlation and AutoCorrelation Charts (ACF & PACF charts)
+# YOU CAN EITHER GET THE 'Gradual Decline' OR 'Sharp Drop-off' PLOTS HERE
+acf_diff1_plot = plot_acf(diff1.dropna())  # GRADUAL DECLINE
+acf_seasonal_diff1_plot = plot_acf(seasonal_diff1.dropna())  # SHARP DROP-OFF
+# PANDAS ALSO HAS THESE PLOTS IN-BUILT IN AUTO-CORRELATIONS (NOT PARTIAL AUTO-CORRELATION DOE :)
+autocorrelation_plot(seasonal_diff1.dropna())  # LIKE THIS
+# NOW, FOR THE PARTIAL AUTO-CORRELATION PLOT
+pacf_seasonal_diff1_plot = plot_pacf(seasonal_diff1.dropna())  # SHARP DROP-OFF
 
-
-
-# 4. Construct the ARIMA Model (using p, d, q, P, D, Q parameters)
+# 4. Construct the ARIMA (or Seasonal ARIMA) Model (using p, d, q, P, D, Q parameters)
 
 
 

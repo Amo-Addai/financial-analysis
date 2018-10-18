@@ -12,6 +12,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 import statsmodels.graphics.api as smg
 from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.tsa.stattools import adfuller
 
 start = datetime.datetime(2012, 1, 1)
 end = datetime.datetime(2017, 1, 1)
@@ -172,6 +173,7 @@ result.plot()  # THIS PLOTS ALL THE E-T-S COMPONENTS (ABOVE) SEPARATELY
 
 
 # ARIMA MODELS: AUTOREGRESSIVE INTEGRATED MOVING AVERAGES (GENERALIZATION OF ARMA MODEL)
+
 # 1. Visualize the Time Series data
 df = pd.read_csv('monthly-milk-production-pounds-p.csv')
 df.head(); df.columns = ['Month', 'Milk in Pounds per Cow']; df.drop(168, axis=0, inplace=True); df.tail()
@@ -184,19 +186,47 @@ ts.rolling(window=12).std().plot(label='12 Month Rolling Std');
 ts.plot(); plt.legend()  # DATA WAS SEASONAL IN YEARS (THEREFORE 12 ROLLING FOR 12 MONTHS)
 # NOW, TESTING THE EWMA PLOTS - MOST RECENT POINTS HAVE MORE WEIGHT & FIXES THESE ISSUES
 ts_ewma = ts.ewm(span=12).mean().plot(figsize=(10, 8))
-# NOW ALSO, ETS DECOMPOSITION
-ts_ets = seasonal_decompose(ts, model="additive")  # OR: model="multiplicative"
+# NOW ALSO, ETS DECOMPOSITION (WITH frequency=12 MONTHS)
+ts_ets = seasonal_decompose(ts, model="additive", frequency=12)  # OR: model="multiplicative"
 print(ts_ets); fig = ts_ets.plot(); fig.set_size_inches(15, 8)  # THIS PLOTS ALL THE E-T-S COMPONENTS SEPARATELY
 
 # 2. Make the Time Series data stationary
-
-
-
+# USING THE AUGMENTED DICKEY-FULLER TEST TO TEST STATIONARITY
+def adf_check(ts):  # TESTS FOR STATIONARITY OF THE TIME SERIES
+    result = adfuller(ts)
+    print("Augmented Dicker-Fuller Test")
+    labels = ['ADF Test Statistic', 'p-value', '# of Lags', '# of Observations used']
+    for value, label in zip(result, labels):
+        print("{} : {}".format(label, str(value)))
+    test = result[1] <= 0.05  # result[1] IS 2nd ELEM -> 'p-value' (i think :)
+    if test:
+        print("Strong evidence against null hypothesis")
+        print("Reject null hypothesis")
+        print("Data has no unit root, and is stationary")
+    else:
+        print("Weak evidence against null hypothesis")
+        print("Fail to reject null hypothesis")
+        print("Data has a unit root, it is non-stationary")
+    return test
+# NOW, CALL YOUR FUNCTION :)
+result = adf_check(ts); diff1, diff2 = None, None
+if not result:  # DATA IS NON-STATIONARY, SO WE CAN START WITH DIFFERENCING, UNTIL IT BECOMES STATIONARY
+    diff1 = ts - ts.shift(1); diff1.plot()
+    res = adf_check(diff1.dropna())  # NOW, TEST THE 1ST DIFFERENCE (BUT DROP NAN VALUES COZ OF THE SHIFTING)
+    if not res:  # IN CASE, IT'S STILL NOT STATIONARY, YOU CAN TAKE A 2ND DIFFERENCE
+        diff2 = diff1 - diff1.shift(1); adf_check(diff2.dropna())
+# YOU CAN ENHANCE THE ALGO' ABOVE A LOT MORE
+# OR YOU CAN ALSO TAKE THE SEASONAL DIFFERECNE INSTEAD (FOR SEASONAL ARIMA)
+seasonal_diff = ts - ts.shift(12); seasonal_diff.plot(); result = adf_check(seasonal_diff.dropna())
+# NOW, TRY CREATING  A SEASONAL 1ST DIFFERENCE (1ST DIFF, THEN SEASONAL DIFF OF 1ST DIFF)
+seasonal_diff1 = diff1 - diff1.shift(12); seasonal_diff1.plot(); adf_check(seasonal_diff1.dropna())
 
 # 3. Plot the Correlation and AutoCorrelation Charts (ACF & PACF charts)
 
 
+
 # 4. Construct the ARIMA Model (using p, d, q, P, D, Q parameters)
+
 
 
 # 5. Use ARIMA model to make predictions / forecasts

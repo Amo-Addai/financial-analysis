@@ -2,8 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import quandl
-
-
+from scipy.optimize import minimize
 
 start, end = pd.to_datetime('2012-01-01'), pd.to_datetime('2017-01-01')
 
@@ -16,7 +15,7 @@ print(aapl.iloc[0]['Adj. Close'])
 for df in (aapl, cisco, ibm, amzn):
     df['Normed Return'] = df['Adj. Close'] / df.iloc[0]['Adj. Close']
 
-#   PORTFOLIO ALLOCATION (eg. 30% - apple, 20% - cisco, 40% - amazon, 10% - ibm
+# PORTFOLIO ALLOCATION (eg. 30% - apple, 20% - cisco, 40% - amazon, 10% - ibm
 for df, alloc, in zip((aapl, cisco, ibm, amzn), [.3, .2, .4, .1]):
     df['Allocation'] = df['Normed Return'] * alloc
 for df in (aapl, cisco, ibm, amzn):
@@ -60,15 +59,130 @@ amzn = pd.read_csv('AMZN_CLOSE', index_col='Date', parse_dates=True)
 stocks = pd.concat([aapl, cisco, ibm, amzn], axis=1)
 stocks.columns = ['aapl', 'csco', 'ibm', 'amzn']
 #   CALC DAILY RETURNS & THEIR CORRELATIONS WITH EACH OTHER
-daily_return = stocks.pct_change(1).mean()
+daily_returns = stocks.pct_change(1).mean()
 correlation_of_returns = stocks.pct_change(1).corr()
 #   COVERTING DAILY ARITHMETIC RETURNS TO LOG RETURNS (COZ IT'S BETTER TO NORMALIZE THE RETURNS, TO FIND TREND)
+log_returns = np.log(stocks / stocks.shift(1))
+log_returns.hist(bins=100, figsize=(12, 8))
+plt.tight_layout()
+avg_log_return = log_returns.mean()
+log_returns.corr();
+log_returns.cov()
+
+np.random.seed(101)
+num_ports = 5000
+all_weights = np.zeros((num_ports, len(stocks.columns)))
+ret_arr, vol_arr, sharpe_arr = np.zeros(num_ports), np.zeros(num_ports), np.zeros(num_ports)
 
 
+def monte_carlo():
+    for i in range(num_ports):
+        # WEIGHTS
+        weights = np.array(np.random.random(4))
+        print("Random Weights -> {}".format(weights))
+        normalized_weights = weights / np.sum(weights)
+        print("Rebalanced Weights -> {}".format(normalized_weights))
+
+        # SAVE WEIGHTS NOW
+        weights = normalized_weights
+        all_weights[i, :] = weights
+
+        # NOW, CALC'ING THE EXPECTED (MEAN) PORTFOLIO RETURN FOR 252 DAYS (1 YEAR)
+        # NB: MULTIPLE BY 252 TRADING DAYS, COZ YOU'RE WORKING WITH LOG RETURNS (NOT %)
+        expected_return = np.sum((log_returns.mean() * weights) * 252)
+        ret_arr[i] = expected_return
+
+        # NOW, EXPECTED VARIANCE / VOLATILITY (MORE COMPLEX LINEAR ALGEBRA FORMULA, BUT FASTER)
+        expected_volatility = np.sqrt(
+            np.dot(weights.T, np.dot(log_returns.cov() * 252, weights))
+        )
+        vol_arr[i] = expected_volatility
+
+        # SHARPE RATIO ..
+        SR = expected_return / expected_volatility
+        sharpe_arr[i] = SR
+
+        print("Expected Portfolio Return -> {}".format(expected_return))
+        print("Expected Portfolio Volatility -> {}".format(expected_volatility))
+        print("Sharpe Ratio -> {}".format(SR))
+
+    max_value, max_index = sharpe_arr.max(), sharpe_arr.argmax()
+    print("MAX SHARPE RATIO: INDEX '{}' -> VALUE '{}'".format(max_value, max_index))
+    #   NOW, PLOT OUT THE GRAPH
+    plt.figure(figsize=(12, 8))  # COLOR GRAPH BY c=sharpe_arr WITH 'plasma' COLOR MAP
+    plt.scatter(vol_arr, ret_arr, c=sharpe_arr, cmap='plasma')
+    plt.colorbar(label='Sharpe Ratio')
+    plt.xlabel('Volatility')
+    plt.ylabel('Return')
+    # OPTIMUM WEIGHTS, RETURNS, VOLATILITY
+    optimal_weights, optimal_return, optimal_volatility = all_weights[max_index, :], ret_arr[max_index], vol_arr[
+        max_index]
+    print("OPTIMAL VALUES (WEIGHTS, VOLATILITY, RETURNS):\n{}\n{}\n{}".format(optimal_weights, optimal_return,
+                                                                              optimal_volatility))
+    #   NOW, PLOT THE OPTIMUM WEIGHTS WITH THE MAX SHARPE RATIO
+    plt.scatter(optimal_volatility, optimal_return, c='red', s=50, edgecolors='black')
 
 
+""" 
+So basically, Monte-Carlo Simulation does above function, but in iterations,
+Until it finds the most optimum set of weights for minimun -ve Sharpe Ratio (or maximum +ve Sharpe Ratio) the portfolio
+"""
+print("RUNNING MONTE-CARLO SIMULATION NOW....")
+monte_carlo()
+#
+
+# #
+#   ANOTHER WAY OF RUNNING THE MONTE-CARLO SIMULATION, WITH SciPy OPTIMIZATION (MINIMIZATION :)
+# #
+
+def negative_sharpe(weights):
+    return get_ret_vol_sr(weights)[2] * (-1)
 
 
+def check_sum(weights):  # WILL RETURN 0 IF SUM == 1 (NOT RETURN BOOL COZ WE'LL NEED THE DIFFERENCE VALUE ITSELF :)
+    return np.sum(weights) - 1
+
+
+def get_ret_vol_sr(weights):  # BASICALLY THE SAME CODE AS ABOVE
+    weights = np.array(weights)
+    expected_return = np.sum((log_returns.mean() * weights) * 252)
+    expected_volatility = np.sqrt(
+        np.dot(weights.T, np.dot(log_returns.cov() * 252, weights))
+    )
+    SR = expected_return / expected_volatility
+    return np.array([expected_return, expected_volatility, SR])
+
+
+def minimum_volatility(weights):
+    return get_ret_vol_sr(weights)[1]
+
+
+constraints = ({'type': 'eq', 'fun': check_sum})
+bounds = ((0, 1), (0, 1), (0, 1), (0, 1))
+init_guess = [0.25, 0.25, 0.25, 0.25]
+opt_results = minimize(negative_sharpe, init_guess, method='SLSQP', bounds=bounds, constraints=constraints)
+print("OPITMIZATION RESULTS ...")
+print(opt_results)
+ret_vol_sr = get_ret_vol_sr(opt_results.x)
+
+#   NOW, CALCULATE THE EFFICIENT FRONTIER, AND PLOT IT OUT ON THE GRAPH
+frontier_y = np.linspace(0, 0.3, 100)
+frontier_volatility = []
+for possible_return in frontier_y:
+    constraints_in_loop = ({'type': 'eq', 'fun': check_sum},
+                           {'type': 'eq', 'fun': lambda w: get_ret_vol_sr(w)[0] - possible_return})
+    result = minimize(minimum_volatility, init_guess, method='SLSQP', bounds=bounds, constraints=constraints_in_loop)
+    # NOW APPEND result TO fronteir_volatility LIST
+    frontier_volatility.append(result['fun'])
+
+# PLOTTING THESE ARRAY VALUES WILL STILL WORK (COZ THEY'VE NOT BEEN EMPTIED AFTER USING THEM ABOVE :)
+plt.figure(figsize=(12, 8))  # COLOR GRAPH BY c=sharpe_arr WITH 'plasma' COLOR MAP
+plt.scatter(vol_arr, ret_arr, c=sharpe_arr, cmap='plasma')
+plt.colorbar(label='Sharpe Ratio')
+plt.xlabel('Volatility')
+plt.ylabel('Return')
+# NOW, PLOT OUT THE EFFICIENT FRONTIER CURVE ON THE GRAPH
+plt.plot(frontier_volatility, frontier_y, 'g--', linewidth=3)
 
 
 

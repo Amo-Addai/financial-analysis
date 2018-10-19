@@ -1,7 +1,9 @@
 import numpy as np
 import pandas as pd
+import pandas_datareader as web
 import matplotlib.pyplot as plt
 import quandl
+from scipy import stats
 from scipy.optimize import minimize
 
 start, end = pd.to_datetime('2012-01-01'), pd.to_datetime('2017-01-01')
@@ -183,6 +185,49 @@ plt.xlabel('Volatility')
 plt.ylabel('Return')
 # NOW, PLOT OUT THE EFFICIENT FRONTIER CURVE ON THE GRAPH
 plt.plot(frontier_volatility, frontier_y, 'g--', linewidth=3)
+
+
+
+#
+# CAPITAL ASSET PRICING MODEL (CAPM)
+#
+
+spy_etf = web.DataReader('SPY', 'google')
+print("OVERALL SPY ETF MARKET PERFORMANCE -> {}".format(spy_etf.info()))
+start, end = pd.to_datetime('2010-01-04'), pd.to_datetime('2017-07-25')
+aapl = web.DataReader('AAPL', 'google', start, end)
+print("APPLE STOCK PERFORMANCE -> {}".format(aapl.head()))
+#
+aapl['Close'].plot(label='AAPL', figsize=(10, 8))
+spy_etf['Close'].plot(label='SPY Index')
+plt.legend()
+#
+aapl['Cumulative'] = aapl['Close'] / aapl['Close'].iloc[0]
+spy_etf['Cumulative'] = spy_etf['Close'] / spy_etf['Close'].iloc[0]
+#
+aapl['Cumulative'].plot(label='AAPL', figsize=(10, 8))
+spy_etf['Cumulative'].plot(label='SPY ETF', figsize=(10, 8))
+plt.legend()
+#
+aapl['Daily Return'] = aapl['Close'].pct_change(1)
+spy_etf['Daily Return'] = spy_etf['Close'].pct_change(1)
+plt.scatter(aapl['Daily Return'], spy_etf['Daily Return'], alpha=0.25)
+# DOESN'T SHOW ANY CORRELATION BETWEEN SPY-ETF & APPLE STOCK AT ALL#
+beta, alpha, r_val, p_val, std_err = stats.linregress(aapl['Daily Return'].iloc[1:],
+                                                      spy_etf['Daily Return'].iloc[1:])
+# beta ISN'T CLOSE TO 1 COZ THERE'S NO CORRELATION AT ALL BETWEEN THE 2 ASSETS
+#
+noise = np.random.normal(0, 0.001, len(spy_etf['Daily Return'].iloc[1:]))
+fake_stock = spy_etf['Daily Return'].iloc[1:] + noise  # ADD THE NOISE DATA
+plt.scatter(fake_stock, spy_etf['Daily Return'], alpha=0.25)
+# SHOWS A +ve CORRELATION BETWEEN THE 2 COZ fake_stock IS BASICALLY SPY-ETF WITH SOME noise
+beta, alpha, r_val, p_val, std_err = stats.linregress(fake_stock,
+                                                      spy_etf['Daily Return'].iloc[1:])
+# NOW, beta VALUE IS CLOSE TO 1 (O.98) COZ OF THE +VE CORRELATION
+
+
+
+
 
 
 

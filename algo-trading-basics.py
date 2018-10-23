@@ -281,7 +281,7 @@ mean_close_10 = SimpleMovingAverage(inputs=[USEquityPricing.close], window_lengt
 
 # NOW, USING CLASSIFIERS
 from quantopian.pipeline.data import morningstar
-from quantopian.pipeline.classifiers.morningstar import sector
+from quantopian.pipeline.classifiers.morningstar import Sector
 
 ms_sector = Sector()  # A LOT OF PROPERTIES OF ms_sector ARE CLASSIFIERS
 exchange_classifier = ms_sector.share_class_reference.exchange_id.latest

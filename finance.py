@@ -212,7 +212,7 @@ plt.legend()
 aapl['Daily Return'] = aapl['Close'].pct_change(1)
 spy_etf['Daily Return'] = spy_etf['Close'].pct_change(1)
 plt.scatter(aapl['Daily Return'], spy_etf['Daily Return'], alpha=0.25)
-# DOESN'T SHOW ANY CORRELATION BETWEEN SPY-ETF & APPLE STOCK AT ALL#
+# DOESN'T SHOW ANY CORRELATION BETWEEN SPY-ETF & APPLE STOCK AT ALL
 beta, alpha, r_val, p_val, std_err = stats.linregress(aapl['Daily Return'].iloc[1:],
                                                       spy_etf['Daily Return'].iloc[1:])
 # beta ISN'T CLOSE TO 1 COZ THERE'S NO CORRELATION AT ALL BETWEEN THE 2 ASSETS

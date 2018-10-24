@@ -98,7 +98,6 @@ set_max_leverage(1.05)  # SET MAXIMUM LEVERAGE
 THEREFORE -> order_target_percent(asset, 2.0) WILL FAIL COZ 2.0 (OR -2.0 SEF) > max. leverage 1.05
 """
 
-
 def initialize(context):
     record(Leverage=context.account.leverage)  # Leverage = Gross Exposure / Net Liquidation
     record(Exposure=context.account.net_leverage)  # Exposure = Net Exposure / Net Liquidation
